@@ -20,7 +20,7 @@
 #include <colorvariables>
 
 
-#define DATA "0.3"
+#define DATA "0.4"
 
 public Plugin myinfo =
 {
@@ -38,6 +38,8 @@ bool g_translator[MAXPLAYERS + 1];
 
 public void OnPluginStart()
 {
+	CreateConVar("sm_translator_version", DATA, "SM Translator Version", FCVAR_SPONLY|FCVAR_NOTIFY);
+	
 	AddCommandListener(Command_Say, "say");	
 	
 	GetLanguageInfo(GetServerLanguage(), ServerLang, 3, ServerCompleteLang, 32);
