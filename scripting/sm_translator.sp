@@ -20,7 +20,7 @@
 #include <colorvariables>
 
 
-#define DATA "0.4"
+#define DATA "0.5"
 
 public Plugin myinfo =
 {
@@ -38,6 +38,8 @@ bool g_translator[MAXPLAYERS + 1];
 
 public void OnPluginStart()
 {
+	LoadTranslations("sm_translator.phrases.txt");
+	
 	CreateConVar("sm_translator_version", DATA, "SM Translator Version", FCVAR_SPONLY|FCVAR_NOTIFY);
 	
 	AddCommandListener(Command_Say, "say");	
@@ -67,18 +69,22 @@ public Action Timer_ShowMenu(Handle timer, int userid)
     
 	if (GetServerLanguage() == GetClientLanguage(client))return;
 
-	CPrintToChat(client, "{lightgreen}[TRANSLATOR]{green} Type in chat !translator for open again this menu");
+	CPrintToChat(client, "{lightgreen}[TRANSLATOR]{green} %T", "Type in chat !translator for open again this menu", client);
 	DoMenu(client);
 }
 
 void DoMenu(int client)
 {
-	Menu menu = new Menu(Menu_select);
-	menu.SetTitle("This server have a translation plugin so you can talk in your own language and it will be translated to others\nUse translator?");
-	menu.AddItem("yes", "Yes, I want to use chat in my native language");
-	
 	char temp[128];
-	Format(temp, sizeof(temp), "No, I want to use chat in the official server language by my own (%s)",ServerCompleteLang);
+	
+	Menu menu = new Menu(Menu_select);
+	menu.SetTitle("%T", "This server have a translation plugin so you can talk in your own language and it will be translated to others.Use translator?",client);
+	
+	Format(temp, sizeof(temp), "%T", "Yes, I want to use chat in my native language",client);
+	menu.AddItem("yes", temp);
+	
+	
+	Format(temp, sizeof(temp), "%T (%s)","No, I want to use chat in the official server language by my own", client, ServerCompleteLang);
 	menu.AddItem("no", temp);
 	menu.Display(client, MENU_TIME_FOREVER);
 }
@@ -169,14 +175,14 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
     if(other == 0)
     {
     	CSetNextAuthor(client);
-    	CPrintToChat(client, "{teamcolor}%N {TRANSLATED FOR OTHERS}{default}: %s", client, result);
+    	CPrintToChat(client, "{teamcolor}%N {%T}{default}: %s", client, "translated for others", client, result);
     	
     	for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i) && !IsFakeClient(i) && i != client)
 			{
 				CSetNextAuthor(client);
-				CPrintToChat(i, "{teamcolor}%N {TRANSLATED FOR YOU}{default}: %s", client, result);
+				CPrintToChat(i, "{teamcolor}%N {%T}{default}: %s", client, "translated for you", i, result);
 			}
 		}
     }
@@ -187,7 +193,7 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
 		if (!i || !IsClientInGame(i))return;
 		
 		CSetNextAuthor(i);
-		CPrintToChat(client, "{teamcolor}%N {TRANSLATED FOR YOU}{default}: %s", i, result);
+		CPrintToChat(client, "{teamcolor}%N {%T}{default}: %s", i, "translated for you", client, result);
 	}
 }  
 
