@@ -20,7 +20,7 @@
 #include <colorvariables>
 
 
-#define DATA "0.2"
+#define DATA "0.3"
 
 public Plugin myinfo =
 {
@@ -32,12 +32,70 @@ public Plugin myinfo =
 };
 
 char ServerLang[3];
+char ServerCompleteLang[32];
+
+bool g_translator[MAXPLAYERS + 1];
 
 public void OnPluginStart()
 {
 	AddCommandListener(Command_Say, "say");	
 	
-	GetLanguageInfo(GetServerLanguage(), ServerLang, 3);
+	GetLanguageInfo(GetServerLanguage(), ServerLang, 3, ServerCompleteLang, 32);
+	
+	RegConsoleCmd("sm_translator", Command_Translator);
+}
+
+public Action Command_Translator(int client, int args)
+{
+	DoMenu(client);
+	return Plugin_Handled;
+}
+
+public void OnClientPostAdminCheck(int client)
+{
+	g_translator[client] = false;
+	CreateTimer(4.0, Timer_ShowMenu, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+}
+
+public Action Timer_ShowMenu(Handle timer, int userid)
+{
+	int client = GetClientOfUserId(userid);
+    
+	if (!client || !IsClientInGame(client))return;
+    
+	if (GetServerLanguage() == GetClientLanguage(client))return;
+
+	CPrintToChat(client, "{lightgreen}[TRANSLATOR]{green} Type in chat !translator for open again this menu");
+	DoMenu(client);
+}
+
+void DoMenu(int client)
+{
+	Menu menu = new Menu(Menu_select);
+	menu.SetTitle("This server have a translation plugin so you can talk in your own language and it will be translated to others\nUse translator?");
+	menu.AddItem("yes", "Yes, I want to use chat in my native language");
+	
+	char temp[128];
+	Format(temp, sizeof(temp), "No, I want to use chat in the official server language by my own (%s)",ServerCompleteLang);
+	menu.AddItem("no", temp);
+	menu.Display(client, MENU_TIME_FOREVER);
+}
+
+public int Menu_select(Menu menu, MenuAction action, int client, int param)
+{
+	if (action == MenuAction_Select)
+	{
+		char selection[128];
+		menu.GetItem(param, selection, sizeof(selection));
+		
+		if (StrEqual(selection, "yes"))g_translator[client] = true;
+		else g_translator[client] = false;
+		
+	}
+	else if (action == MenuAction_End)
+	{
+		delete menu;
+	}
 }
 
 public Action Command_Say(int client, const char[] command, int args)
@@ -55,6 +113,8 @@ public Action Command_Say(int client, const char[] command, int args)
 	// Foreign
 	if(GetServerLanguage() != GetClientLanguage(client))
 	{
+		if (!g_translator[client])return;
+		
 		Handle request = CreateRequest(buffer, ServerLang, client);
 		SteamWorks_SendHTTPRequest(request);
 	}
@@ -64,6 +124,9 @@ public Action Command_Say(int client, const char[] command, int args)
 		{
 			if(IsClientInGame(i) && !IsFakeClient(i) && i != client && GetClientLanguage(client) != GetClientLanguage(i))
 			{
+				if (!g_translator[i])continue;
+				
+				
 				GetLanguageInfo(GetClientLanguage(i), temp, 3); // get Foreign language
 				Handle request = CreateRequest(buffer, temp, i, client); // Translate not Foreign msg to Foreign player
 				SteamWorks_SendHTTPRequest(request);
