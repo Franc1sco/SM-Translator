@@ -20,7 +20,7 @@
 #include <colorvariables>
 
 
-#define DATA "0.5"
+#define DATA "1.0"
 
 public Plugin myinfo =
 {
@@ -47,6 +47,14 @@ public void OnPluginStart()
 	GetLanguageInfo(GetServerLanguage(), ServerLang, 3, ServerCompleteLang, 32);
 	
 	RegConsoleCmd("sm_translator", Command_Translator);
+	
+	for(int i = 1; i <= MaxClients; i++)
+		{
+			if(IsClientInGame(i) && !IsFakeClient(i))
+			{
+				OnClientPostAdminCheck(i);
+			}
+		}
 }
 
 public Action Command_Translator(int client, int args)
@@ -116,6 +124,13 @@ public Action Command_Say(int client, const char[] command, int args)
 	
 	if (strlen(buffer) < 1)return;
 	
+	char commands[255];
+	
+	GetCmdArg(1, commands, sizeof(commands));
+	ReplaceString(commands, sizeof(commands), "!", "sm_", false);
+	
+	if (CommandExists(commands))return;
+	
 	char temp[3];
 	
 	// Foreign
@@ -125,15 +140,24 @@ public Action Command_Say(int client, const char[] command, int args)
 		
 		Handle request = CreateRequest(buffer, ServerLang, client);
 		SteamWorks_SendHTTPRequest(request);
-	}
-	else
-	{
+		
 		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i) && !IsFakeClient(i) && i != client && GetClientLanguage(client) != GetClientLanguage(i))
 			{
+				GetLanguageInfo(GetClientLanguage(i), temp, 3); // get Foreign language
+				Handle request2 = CreateRequest(buffer, temp, i, client); // Translate not Foreign msg to Foreign player
+				SteamWorks_SendHTTPRequest(request2);
+			}
+		}
+	}
+	else // Not foreign
+	{
+		for(int i = 1; i <= MaxClients; i++)
+		{
+			if(IsClientInGame(i) && !IsFakeClient(i) && i != client)
+			{
 				if (!g_translator[i])continue;
-				
 				
 				GetLanguageInfo(GetClientLanguage(i), temp, 3); // get Foreign language
 				Handle request = CreateRequest(buffer, temp, i, client); // Translate not Foreign msg to Foreign player
@@ -177,6 +201,7 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
     	CSetNextAuthor(client);
     	CPrintToChat(client, "{teamcolor}%N {%T}{default}: %s", client, "translated for others", client, result);
     	
+    	/*
     	for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i) && !IsFakeClient(i) && i != client)
@@ -184,7 +209,7 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
 				CSetNextAuthor(client);
 				CPrintToChat(i, "{teamcolor}%N {%T}{default}: %s", client, "translated for you", i, result);
 			}
-		}
+		}*/
     }
     else
     {
