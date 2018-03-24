@@ -20,7 +20,7 @@
 #include <colorvariables>
 
 
-#define DATA "0.1"
+#define DATA "0.2"
 
 public Plugin myinfo =
 {
@@ -52,9 +52,10 @@ public Action Command_Say(int client, const char[] command, int args)
 	
 	char temp[3];
 	
+	// Foreign
 	if(GetServerLanguage() != GetClientLanguage(client))
 	{
-		Handle request = CreateRequest(buffer, ServerLang, client, true);
+		Handle request = CreateRequest(buffer, ServerLang, client);
 		SteamWorks_SendHTTPRequest(request);
 	}
 	else
@@ -63,26 +64,26 @@ public Action Command_Say(int client, const char[] command, int args)
 		{
 			if(IsClientInGame(i) && !IsFakeClient(i) && i != client && GetClientLanguage(client) != GetClientLanguage(i))
 			{
-				GetLanguageInfo(GetClientLanguage(i), temp, 3);
-				Handle request = CreateRequest(buffer, temp, i, false);
+				GetLanguageInfo(GetClientLanguage(i), temp, 3); // get Foreign language
+				Handle request = CreateRequest(buffer, temp, i, client); // Translate not Foreign msg to Foreign player
 				SteamWorks_SendHTTPRequest(request);
 			}
 		}
 	}
 }
 
-Handle CreateRequest(char[] input, char[] target, int client, bool Foreign)
+Handle CreateRequest(char[] input, char[] target, int client, int other = 0)
 {
     Handle request = SteamWorks_CreateHTTPRequest(k_EHTTPMethodGET, "http://www.headlinedev.xyz/translate/translate.php");
     SteamWorks_SetHTTPRequestGetOrPostParameter(request, "input", input);
     SteamWorks_SetHTTPRequestGetOrPostParameter(request, "target", target);
     
-    SteamWorks_SetHTTPRequestContextValue(request, GetClientUserId(client), Foreign);
+    SteamWorks_SetHTTPRequestContextValue(request, GetClientUserId(client), other>0?GetClientUserId(other):0);
     SteamWorks_SetHTTPCallbacks(request, Callback_OnHTTPResponse);
     return request;
 }
 
-public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode, int userid, bool Foreign)
+public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode, int userid, int other)
 {
     if (!bRequestSuccessful || eStatusCode != k_EHTTPStatusCode200OK)
     {        
@@ -100,7 +101,7 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
     
     if (!client || !IsClientInGame(client))return;
     
-    if(Foreign)
+    if(other == 0)
     {
     	CSetNextAuthor(client);
     	CPrintToChat(client, "{teamcolor}%N {TRANSLATED FOR OTHERS}{default}: %s", client, result);
@@ -116,15 +117,13 @@ public int Callback_OnHTTPResponse(Handle request, bool bFailure, bool bRequestS
     }
     else
     {
-    	for(int i = 1; i <= MaxClients; i++)
-		{
-			if(IsClientInGame(i) && !IsFakeClient(i) && i != client && GetServerLanguage() != GetClientLanguage(i))
-			{
-				CSetNextAuthor(client);
-				CPrintToChat(i, "{teamcolor}%N {TRANSLATED FOR YOU}{default}: %s", client, result);
-			}
-		}
-    }
+		int i = GetClientOfUserId(other);
+    
+		if (!i || !IsClientInGame(i))return;
+		
+		CSetNextAuthor(i);
+		CPrintToChat(client, "{teamcolor}%N {TRANSLATED FOR YOU}{default}: %s", i, result);
+	}
 }  
 
 stock bool IsValidClient(int client, bool bAllowBots = false, bool bAllowDead = true)
